@@ -124,6 +124,18 @@ export function DomainCheckerPage() {
     setPage(1);
   };
 
+  const handleExport = () => {
+    if (!sortedRecords.length) return;
+    const payload = sortedRecords.map((item) => item.domain).join(",");
+    const blob = new Blob([payload], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "domains.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const showingStart = (safePage - 1) * PAGE_SIZE + 1;
   const showingEnd = Math.min(safePage * PAGE_SIZE, sortedRecords.length);
 
@@ -300,6 +312,9 @@ export function DomainCheckerPage() {
                 </option>
               ))}
             </select>
+            <button className="button ghost" onClick={handleExport} disabled={!sortedRecords.length}>
+              Export filtered
+            </button>
           </div>
         </div>
 
