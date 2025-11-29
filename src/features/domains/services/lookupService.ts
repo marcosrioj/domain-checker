@@ -1,18 +1,39 @@
 import { DomainRecord, RdapStatus } from "../types/domainTypes";
 
-export async function runRdapLookup(domain: string): Promise<RdapStatus> {
+let rdapLock: Promise<void> = Promise.resolve();
+
+// Simple mutex to serialize RDAP calls; additional requests wait for the previous one to finish.
+async function withRdapLock<T>(task: () => Promise<T>): Promise<T> {
+  const previous = rdapLock;
+  let release: () => void = () => {};
+  rdapLock = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await previous;
+
   try {
-    const response = await fetch(`https://rdap.org/domain/${encodeURIComponent(domain)}`);
-    if (response.status === 404) {
-      return "available";
-    }
-    if (response.ok) {
-      return "taken";
-    }
-    return "unknown";
-  } catch {
-    return "unknown";
+    return await task();
+  } finally {
+    release();
   }
+}
+
+export async function runRdapLookup(domain: string): Promise<RdapStatus> {
+  return withRdapLock(async () => {
+    try {
+      const response = await fetch(`https://rdap.org/domain/${encodeURIComponent(domain)}`);
+      if (response.status === 404) {
+        return "available";
+      }
+      if (response.ok) {
+        return "taken";
+      }
+      return "unknown";
+    } catch {
+      return "unknown";
+    }
+  });
 }
 
 export async function runDnsLookup(record: DomainRecord): Promise<DomainRecord> {
