@@ -252,6 +252,11 @@ body {
   min-width: 140px;
 }
 
+.input-compact {
+  min-width: 50px;
+  width: 50px;
+}
+
 .table-wrapper {
   overflow: auto;
   border: 1px solid var(--border);

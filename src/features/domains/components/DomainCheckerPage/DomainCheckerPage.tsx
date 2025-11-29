@@ -251,7 +251,7 @@ export function DomainCheckerPage() {
               }}
             />
             <input
-              className="input"
+              className="input input-compact"
               type="number"
               min={0}
               placeholder="Min chars (core)"
@@ -262,7 +262,7 @@ export function DomainCheckerPage() {
               }}
             />
             <input
-              className="input"
+              className="input input-compact"
               type="number"
               min={0}
               placeholder="Max chars (core)"
