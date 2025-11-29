@@ -6,3 +6,6 @@ dist/
 .vscode/
 .idea/
 *.log
+tsconfig.tsbuildinfo
+*.d.ts
+*.js

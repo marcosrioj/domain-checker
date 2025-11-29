@@ -63,6 +63,8 @@ export function DomainCheckerPage() {
   const [statusFilter, setStatusFilter] = useState<DomainStatus | "all">("all");
   const [rdapFilter, setRdapFilter] = useState<RdapStatus | "all">("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [minChars, setMinChars] = useState("");
+  const [maxChars, setMaxChars] = useState("");
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(1);
@@ -71,13 +73,21 @@ export function DomainCheckerPage() {
 
   const filteredRecords = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
+    const minCharsValue = Number.parseInt(minChars, 10);
+    const maxCharsValue = Number.parseInt(maxChars, 10);
+    const hasMin = Number.isFinite(minCharsValue);
+    const hasMax = Number.isFinite(maxCharsValue);
+
     return records.filter((item) => {
       const statusMatch = statusFilter === "all" || item.status === statusFilter;
       const rdapMatch = rdapFilter === "all" || item.rdapStatus === rdapFilter;
       const textMatch = !term || item.domain.includes(term) || item.core.includes(term);
-      return statusMatch && rdapMatch && textMatch;
+      const coreLength = item.core.length;
+      const minMatch = !hasMin || coreLength >= minCharsValue;
+      const maxMatch = !hasMax || coreLength <= maxCharsValue;
+      return statusMatch && rdapMatch && textMatch && minMatch && maxMatch;
     });
-  }, [records, rdapFilter, searchTerm, statusFilter]);
+  }, [maxChars, minChars, records, rdapFilter, searchTerm, statusFilter]);
 
   const sortedRecords = useMemo(() => sortRecords(filteredRecords, sortField, sortDirection), [filteredRecords, sortDirection, sortField]);
 
@@ -237,6 +247,28 @@ export function DomainCheckerPage() {
               value={searchTerm}
               onChange={(event) => {
                 setSearchTerm(event.target.value);
+                setPage(1);
+              }}
+            />
+            <input
+              className="input"
+              type="number"
+              min={0}
+              placeholder="Min chars (core)"
+              value={minChars}
+              onChange={(event) => {
+                setMinChars(event.target.value);
+                setPage(1);
+              }}
+            />
+            <input
+              className="input"
+              type="number"
+              min={0}
+              placeholder="Max chars (core)"
+              value={maxChars}
+              onChange={(event) => {
+                setMaxChars(event.target.value);
                 setPage(1);
               }}
             />
