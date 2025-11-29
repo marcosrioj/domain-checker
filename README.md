@@ -32,3 +32,8 @@ src/
       types/        # Domain types
       utils/        # Normalization, formatting, sorting helpers
 ```
+
+## Deploy to GitHub Pages
+- Push to `main` and GitHub Actions will build and publish `dist` to Pages (workflow: `.github/workflows/deploy.yml`).
+- The workflow sets `BASE_PATH` to `/<repo-name>/` so assets load under the Pages path; you can override by setting a different `BASE_PATH` env or editing `vite.config.ts`.
+- First time setup: in your repo’s Settings → Pages, select “GitHub Actions” as the source. After the first successful run, Pages will be live at `https://<username>.github.io/<repo-name>/`.
