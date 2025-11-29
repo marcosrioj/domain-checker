@@ -313,7 +313,7 @@ export function DomainCheckerPage() {
               ))}
             </select>
             <button className="button ghost" onClick={handleExport} disabled={!sortedRecords.length}>
-              Export filtered
+              Export
             </button>
           </div>
         </div>
