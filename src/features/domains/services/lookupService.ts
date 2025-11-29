@@ -15,6 +15,7 @@ async function withRdapLock<T>(task: () => Promise<T>): Promise<T> {
   try {
     return await task();
   } finally {
+    await new Promise((resolve) => setTimeout(resolve, 500));
     release();
   }
 }
