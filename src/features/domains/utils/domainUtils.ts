@@ -1,4 +1,4 @@
-import { DomainRecord } from "./types";
+import { DomainRecord } from "../types/domainTypes";
 
 export function normalizeDomain(value: string): string | null {
   if (!value) return null;

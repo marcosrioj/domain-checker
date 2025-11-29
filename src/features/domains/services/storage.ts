@@ -1,4 +1,4 @@
-import { DomainRecord } from "./types";
+import { DomainRecord } from "../types/domainTypes";
 
 const DB_NAME = "domain-checker";
 const DB_VERSION = 1;
