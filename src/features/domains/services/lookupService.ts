@@ -51,7 +51,7 @@ export async function runDnsLookup(record: DomainRecord): Promise<DomainRecord> 
 
     if (code === 3) {
       next.status = "available";
-      next.rdapStatus = await runRdapLookup(record.domain);
+      next.rdapStatus = "not_checked";
       return next;
     }
 
@@ -74,5 +74,6 @@ export async function runDnsLookup(record: DomainRecord): Promise<DomainRecord> 
 export async function runRdapOnly(record: DomainRecord): Promise<DomainRecord> {
   const rdapStatus = await runRdapLookup(record.domain);
   const checkedAt = Date.now();
-  return { ...record, rdapStatus, checkedAt, status: record.status };
+  const status = rdapStatus === "taken" ? "taken" : record.status;
+  return { ...record, rdapStatus, checkedAt, status };
 }

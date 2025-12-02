@@ -109,7 +109,7 @@ body {
   padding: 14px;
   font-size: 14px;
   resize: vertical;
-  min-height: 120px;
+  min-height: 250px;
   background: #f9fbff;
 }
 
@@ -141,6 +141,11 @@ body {
   color: #fff;
   border-color: var(--primary);
 }
+.button.primary.outline {
+  background: transparent;
+  color: var(--primary);
+  border-color: var(--primary);
+}
 
 .button.primary:hover:not(:disabled) {
   background: var(--primary-strong);
@@ -151,9 +156,31 @@ body {
   border-color: var(--warning);
   color: #0f172a;
 }
+.button.warning.outline {
+  background: transparent;
+  color: var(--warning);
+  border-color: var(--warning);
+}
 
 .button.ghost {
   background: transparent;
+}
+
+.button-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.button-row .button {
+  flex: 1;
+  min-width: 160px;
 }
 
 .checkbox {

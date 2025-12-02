@@ -9,17 +9,15 @@ const rdapFinalStatuses = new Set<RdapStatus>(["available", "taken"]);
 
 export function useDomainChecker() {
   const [records, setRecords] = useState<DomainRecord[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
+  const [running, setRunning] = useState<{ dns: boolean; rdap: boolean }>({ dns: false, rdap: false });
   const [statusMessage, setStatusMessage] = useState("Idle");
-  const [rdapOnly, setRdapOnly] = useState(false);
 
   const recordsRef = useRef<DomainRecord[]>([]);
-  const stopRequestedRef = useRef(false);
-  const rdapOnlyRef = useRef(false);
-
-  useEffect(() => {
-    rdapOnlyRef.current = rdapOnly;
-  }, [rdapOnly]);
+  const stopRequestedRef = useRef<{ dns: boolean; rdap: boolean }>({ dns: false, rdap: false });
+  const inFlightRef = useRef<{ dns: Set<string>; rdap: Set<string> }>({
+    dns: new Set<string>(),
+    rdap: new Set<string>(),
+  });
 
   useEffect(() => {
     getAllRecords()
@@ -78,54 +76,88 @@ export function useDomainChecker() {
     [upsertRecords],
   );
 
-  const handleStart = useCallback(async () => {
-    if (isRunning) return;
-    stopRequestedRef.current = false;
-    setIsRunning(true);
-    setStatusMessage(rdapOnlyRef.current ? "RDAP-only mode running" : "Checker started");
+  const startChecker = useCallback(
+    async (checker: "dns" | "rdap") => {
+      if (running[checker]) return;
+      inFlightRef.current[checker].clear();
+      stopRequestedRef.current[checker] = false;
+      setRunning((prev) => ({ ...prev, [checker]: true }));
+      setStatusMessage(checker === "dns" ? "DNS checker running (Google DNS)" : "Domain checker running (RDAP)");
+      let finalStatus = checker === "dns" ? "DNS checker idle" : "Domain checker idle";
+      let processedCount = 0;
 
-    while (!stopRequestedRef.current) {
-      const snapshot = recordsRef.current;
-      const candidates = rdapOnlyRef.current
-        ? snapshot.filter((item) => item.status === "available" && !rdapFinalStatuses.has(item.rdapStatus))
-        : snapshot.filter((item) => item.status === "queued");
+      const nextCandidate = () => {
+        const snapshot = recordsRef.current;
+        const pool =
+          checker === "dns"
+            ? snapshot.filter((item) => item.status === "queued")
+            : snapshot.filter((item) => item.status === "available" && !rdapFinalStatuses.has(item.rdapStatus));
+        return pool.find((item) => !inFlightRef.current[checker].has(item.id)) ?? null;
+      };
 
-      if (!candidates.length) {
-        setStatusMessage("Nothing left to process");
-        break;
+      const processOne = async () => {
+        if (stopRequestedRef.current[checker]) return;
+        const candidate = nextCandidate();
+        if (!candidate) return;
+
+        inFlightRef.current[checker].add(candidate.id);
+
+        if (checker === "dns") {
+          await upsertRecords([{ ...candidate, status: "checking" }]);
+          const processed = await runDnsLookup({ ...candidate, status: "checking" });
+          await upsertRecords([processed]);
+          processedCount += 1;
+          setStatusMessage(`DNS checked ${processedCount} domain${processedCount === 1 ? "" : "s"}`);
+        } else {
+          const processed = await runRdapOnly(candidate);
+          await upsertRecords([processed]);
+          processedCount += 1;
+          setStatusMessage(`RDAP checked ${processedCount} domain${processedCount === 1 ? "" : "s"}`);
+        }
+
+        inFlightRef.current[checker].delete(candidate.id);
+      };
+
+      const workers = Array.from({ length: BATCH_SIZE }).map(async () => {
+        while (!stopRequestedRef.current[checker]) {
+          const before = processedCount;
+          await processOne();
+          if (stopRequestedRef.current[checker]) break;
+          const progressMade = processedCount > before;
+          const hasMore = !!nextCandidate();
+          if (!progressMade && !hasMore) break;
+        }
+      });
+
+      await Promise.all(workers);
+
+      const wasStopped = stopRequestedRef.current[checker];
+      stopRequestedRef.current[checker] = false;
+      setRunning((prev) => ({ ...prev, [checker]: false }));
+      if (wasStopped) {
+        finalStatus = "Stop requested. Finishing current batch.";
+      } else if (processedCount === 0) {
+        finalStatus = checker === "dns" ? "No queued domains to check via DNS" : "No available domains pending RDAP check";
       }
+      setStatusMessage(finalStatus);
+    },
+    [running, upsertRecords],
+  );
 
-      const batch = candidates.slice(0, BATCH_SIZE);
-      await upsertRecords(
-        batch.map((item) => ({
-          ...item,
-          status: "checking",
-        })),
+  const stopChecker = useCallback(
+    (checker: "dns" | "rdap") => {
+      if (!running[checker]) return;
+      stopRequestedRef.current[checker] = true;
+      setStatusMessage(
+        checker === "dns" ? "DNS stop requested. Finishing current in-flight lookups." : "RDAP stop requested. Finishing current in-flight lookups.",
       );
-
-      const processed = await Promise.all(
-        batch.map((record) => (rdapOnlyRef.current ? runRdapOnly(record) : runDnsLookup(record))),
-      );
-
-      await upsertRecords(processed);
-      setStatusMessage(`Processed ${processed.length} domain${processed.length === 1 ? "" : "s"}`);
-
-      if (stopRequestedRef.current) break;
-    }
-
-    stopRequestedRef.current = false;
-    setIsRunning(false);
-    setStatusMessage("Checker idle");
-  }, [isRunning, upsertRecords]);
-
-  const handleStop = useCallback(() => {
-    stopRequestedRef.current = true;
-    setStatusMessage("Stop requested. Finishing current batch.");
-  }, []);
+    },
+    [running],
+  );
 
   const handleClear = useCallback(async () => {
-    stopRequestedRef.current = true;
-    setIsRunning(false);
+    stopRequestedRef.current = { dns: true, rdap: true };
+    setRunning({ dns: false, rdap: false });
     await clearAllRecords();
     setRecords([]);
     recordsRef.current = [];
@@ -149,18 +181,18 @@ export function useDomainChecker() {
 
   return {
     records,
-    isRunning,
+    running,
     statusMessage,
-    rdapOnly,
-    setRdapOnly,
     queueCount,
     totalAvailable,
     totalTaken,
     totalChecked,
     takenOverall,
     enqueueDomains,
-    handleStart,
-    handleStop,
+    handleStartDns: () => startChecker("dns"),
+    handleStartRdap: () => startChecker("rdap"),
+    handleStopDns: () => stopChecker("dns"),
+    handleStopRdap: () => stopChecker("rdap"),
     handleClear,
   };
 }

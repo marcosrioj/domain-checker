@@ -1,15 +1,16 @@
 # Domain Checker
 
-React 18 + Vite app to queue domains, store them in IndexedDB, and check availability via DNS with optional RDAP follow-up.
+React 18 + Vite app to queue domains, store them in IndexedDB, and check availability via DNS (Google) with optional RDAP follow-up.
 
 ## Live demo
 - https://marcosrioj.github.io/domain-checker/
 
 ## What it does (for users)
 - Paste or upload a .txt list of domains (commas/newlines). Inputs are normalized: lowercase, protocols/paths trimmed, `.com` appended if no TLD, duplicates skipped.
-- Start/stop the checker. It processes queued domains in batches of up to 50.
-- DNS check: NS lookup via dns.google. If NXDOMAIN → mark available and call RDAP (rdap.org) for final availability; any other response → taken or unknown.
-- RDAP-only mode: skip DNS and re-run RDAP for domains marked available without a final RDAP result.
+- Start the DNS checker (Google DNS) and/or the Domain checker (RDAP). They can run in parallel; Stop halts both.
+- Each checker runs a 50-worker pool pulling new domains continuously (no batch pauses). DNS targets queued domains; RDAP targets available domains without a final RDAP status.
+- DNS check: NS lookup via dns.google. NXDOMAIN → mark available (RDAP left `not_checked`); other codes → taken or unknown.
+- RDAP check: rdap.org; marks available/taken/unknown and upgrades status to taken when RDAP reports registered.
 - Table with search, filters (status/RDAP), sortable columns (domain/core/created), pagination (20/page), and status bar with queue/running stats.
 - Clear history wipes IndexedDB.
 

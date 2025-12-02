@@ -44,18 +44,18 @@ function chipForRdap(status: RdapStatus) {
 export function DomainCheckerPage() {
   const {
     records,
-    isRunning,
+    running,
     statusMessage,
-    rdapOnly,
-    setRdapOnly,
     queueCount,
     totalAvailable,
     totalTaken,
     totalChecked,
     takenOverall,
     enqueueDomains,
-    handleStart,
-    handleStop,
+    handleStartDns,
+    handleStartRdap,
+    handleStopDns,
+    handleStopRdap,
     handleClear,
   } = useDomainChecker();
 
@@ -89,7 +89,10 @@ export function DomainCheckerPage() {
     });
   }, [maxChars, minChars, records, rdapFilter, searchTerm, statusFilter]);
 
-  const sortedRecords = useMemo(() => sortRecords(filteredRecords, sortField, sortDirection), [filteredRecords, sortDirection, sortField]);
+  const sortedRecords = useMemo(
+    () => sortRecords(filteredRecords, sortField, sortDirection),
+    [filteredRecords, sortDirection, sortField],
+  );
 
   const totalPages = Math.max(1, Math.ceil(sortedRecords.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -138,6 +141,8 @@ export function DomainCheckerPage() {
 
   const showingStart = (safePage - 1) * PAGE_SIZE + 1;
   const showingEnd = Math.min(safePage * PAGE_SIZE, sortedRecords.length);
+  const isDnsRunning = running.dns;
+  const isRdapRunning = running.rdap;
 
   return (
     <div className="app-shell">
@@ -145,10 +150,20 @@ export function DomainCheckerPage() {
         <div>
           <p className="eyebrow">Domain Checker</p>
           <h1>Queue, persist, and verify domains</h1>
-          <p className="muted">Lowercase + normalize inputs, store in IndexedDB, then check DNS with optional RDAP follow-up.</p>
+          <p className="muted">
+            Lowercase + normalize inputs, store in IndexedDB, then check DNS with optional RDAP follow-up.
+          </p>
         </div>
         <div className="header-stats">
-          <div className={`runner ${isRunning ? "runner-on" : "runner-off"}`}>{isRunning ? "Running" : "Idle"}</div>
+          <div className={`runner ${isDnsRunning || isRdapRunning ? "runner-on" : "runner-off"}`}>
+            {isDnsRunning && isRdapRunning
+              ? "DNS + RDAP running"
+              : isDnsRunning
+                ? "DNS running"
+                : isRdapRunning
+                  ? "RDAP running"
+                  : "Idle"}
+          </div>
           <div className="metric">
             <span className="metric-label">Queue</span>
             <span className="metric-value">{queueCount}</span>
@@ -156,10 +171,6 @@ export function DomainCheckerPage() {
           <div className="metric">
             <span className="metric-label">Total</span>
             <span className="metric-value">{records.length}</span>
-          </div>
-          <div className="metric">
-            <span className="metric-label">RDAP only</span>
-            <span className="metric-value">{rdapOnly ? "On" : "Off"}</span>
           </div>
         </div>
       </header>
@@ -188,16 +199,6 @@ export function DomainCheckerPage() {
               Upload .txt
               <input ref={fileInputRef} className="file-input" type="file" accept=".txt" onChange={handleFileChange} />
             </label>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={rdapOnly}
-                onChange={(event) => {
-                  setRdapOnly(event.target.checked);
-                }}
-              />
-              <span>RDAP only (skip DNS; revisit available domains)</span>
-            </label>
           </div>
         </div>
 
@@ -205,14 +206,19 @@ export function DomainCheckerPage() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">Controls</p>
-              <h2>Checker</h2>
+              <h2>Checkers</h2>
+              <p className="muted">
+                Hint: DNS checker (Google DNS) is fast for triage. Domain checker (RDAP) confirms if a domain is truly free
+                to register.
+              </p>
             </div>
           </div>
           <div className="status-grid">
             <div>
               <p className="muted">Totals (all time)</p>
               <p className="stat-line">
-                Total: <strong>{records.length}</strong> · Available: <strong>{totalAvailable}</strong> · Taken: <strong>{totalTaken}</strong>
+                Total: <strong>{records.length}</strong> · Available: <strong>{totalAvailable}</strong> · Taken:{" "}
+                <strong>{totalTaken}</strong>
               </p>
             </div>
             <div>
@@ -232,16 +238,26 @@ export function DomainCheckerPage() {
               <p className="stat-line">{statusMessage}</p>
             </div>
           </div>
-          <div className="panel-actions">
-            <button className="button primary" onClick={() => void handleStart()} disabled={isRunning}>
-              Start checker
-            </button>
-            <button className="button warning" onClick={handleStop} disabled={!isRunning}>
-              Stop checker
-            </button>
-            <button className="button ghost" onClick={() => void handleClear()}>
-              Clear history
-            </button>
+          <div className="button-stack">
+            <div className="button-row">
+              <button className="button primary" onClick={() => void handleStartDns()} disabled={isDnsRunning}>
+                DNS checker
+              </button>
+              <button className="button primary" onClick={() => void handleStartRdap()} disabled={isRdapRunning}>
+                Domain checker
+              </button>
+            </div>
+            <div className="button-row">
+              <button className="button warning" onClick={handleStopDns} disabled={!isDnsRunning}>
+                Stop DNS
+              </button>
+              <button className="button warning" onClick={handleStopRdap} disabled={!isRdapRunning}>
+                Stop Domain
+              </button>
+              <button className="button ghost" onClick={() => void handleClear()}>
+                Clear history
+              </button>
+            </div>
           </div>
         </div>
       </section>
