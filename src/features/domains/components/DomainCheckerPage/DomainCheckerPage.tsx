@@ -44,6 +44,7 @@ function chipForRdap(status: RdapStatus) {
 export function DomainCheckerPage() {
   const {
     records,
+    recordsVersion,
     running,
     statusMessage,
     queueCount,
@@ -51,6 +52,7 @@ export function DomainCheckerPage() {
     totalTaken,
     totalChecked,
     takenOverall,
+    totalRecords,
     enqueueDomains,
     handleStartDns,
     handleStartRdap,
@@ -87,7 +89,7 @@ export function DomainCheckerPage() {
       const maxMatch = !hasMax || coreLength <= maxCharsValue;
       return statusMatch && rdapMatch && textMatch && minMatch && maxMatch;
     });
-  }, [maxChars, minChars, records, rdapFilter, searchTerm, statusFilter]);
+  }, [maxChars, minChars, records, recordsVersion, rdapFilter, searchTerm, statusFilter]);
 
   const sortedRecords = useMemo(
     () => sortRecords(filteredRecords, sortField, sortDirection),
@@ -170,7 +172,7 @@ export function DomainCheckerPage() {
           </div>
           <div className="metric">
             <span className="metric-label">Total</span>
-            <span className="metric-value">{records.length}</span>
+            <span className="metric-value">{totalRecords}</span>
           </div>
         </div>
       </header>
@@ -217,7 +219,7 @@ export function DomainCheckerPage() {
             <div>
               <p className="muted">Totals (all time)</p>
               <p className="stat-line">
-                Total: <strong>{records.length}</strong> · Available: <strong>{totalAvailable}</strong> · Taken:{" "}
+                Total: <strong>{totalRecords}</strong> · Available: <strong>{totalAvailable}</strong> · Taken:{" "}
                 <strong>{totalTaken}</strong>
               </p>
             </div>
