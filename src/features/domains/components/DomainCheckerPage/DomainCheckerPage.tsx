@@ -157,9 +157,10 @@ export function DomainCheckerPage() {
       <header className="app-header">
         <div>
           <p className="eyebrow">Domain Checker</p>
-          <h1>Queue, persist, and verify domains</h1>
+          <h1>Batch-check which domains you can register</h1>
           <p className="muted">
-            Lowercase + normalize inputs, store in IndexedDB, then check DNS with optional RDAP follow-up.
+            Paste or upload a list; it normalizes to lowercase, stores it locally (IndexedDB), and verifies availability via
+            DNS (Faster) and then via RDAP/Domain (Real check) confirmations.
           </p>
         </div>
         <div className="header-stats">
