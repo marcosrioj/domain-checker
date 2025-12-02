@@ -3,7 +3,7 @@ import { useDomainChecker } from "../../hooks/useDomainChecker";
 import { formatDateTime, sortRecords } from "../../utils/domainUtils";
 import { DomainRecord, DomainStatus, RdapStatus, SortDirection, SortField } from "../../types/domainTypes";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZES = [20, 50, 100, 200];
 const STATUS_OPTIONS: Array<DomainStatus | "all"> = ["all", "queued", "checking", "available", "taken", "unknown"];
 const RDAP_OPTIONS: Array<RdapStatus | "all"> = ["all", "available", "taken", "unknown", "not_checked"];
 
@@ -70,6 +70,8 @@ export function DomainCheckerPage() {
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0]);
+  const [gotoPage, setGotoPage] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -96,15 +98,19 @@ export function DomainCheckerPage() {
     [filteredRecords, sortDirection, sortField],
   );
 
-  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pagedRecords = sortedRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedRecords = sortedRecords.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   useEffect(() => {
     if (page > totalPages) {
       setPage(totalPages);
     }
   }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
 
   const handleAddFromText = async () => {
     await enqueueDomains(inputValue);
@@ -141,8 +147,8 @@ export function DomainCheckerPage() {
     URL.revokeObjectURL(url);
   };
 
-  const showingStart = (safePage - 1) * PAGE_SIZE + 1;
-  const showingEnd = Math.min(safePage * PAGE_SIZE, sortedRecords.length);
+  const showingStart = (safePage - 1) * pageSize + 1;
+  const showingEnd = Math.min(safePage * pageSize, sortedRecords.length);
   const isDnsRunning = running.dns;
   const isRdapRunning = running.rdap;
 
@@ -379,23 +385,82 @@ export function DomainCheckerPage() {
           </table>
         </div>
         <div className="table-footer">
+          <div className="pager">
+            <div className="pager-controls-group">
+              <label className="pager-control">
+                Rows/page
+                <select
+                  className="input input-compact"
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                  }}
+                >
+                  {PAGE_SIZES.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="pager-buttons">
+                <button className="button ghost" onClick={() => setPage(1)} disabled={safePage === 1}>
+                  First
+                </button>
+                <button className="button ghost" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={safePage === 1}>
+                  Prev
+                </button>
+                <span className="muted">
+                  Page {safePage} / {totalPages}
+                </span>
+                <button
+                  className="button ghost"
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={safePage === totalPages || totalPages === 0}
+                >
+                  Next
+                </button>
+                <button className="button ghost" onClick={() => setPage(totalPages)} disabled={safePage === totalPages}>
+                  Last
+                </button>
+              </div>
+            </div>
+            <div className="pager-control">
+              <input
+                className="input input-compact"
+                type="number"
+                min={1}
+                max={totalPages}
+                placeholder="Go to page"
+                value={gotoPage}
+                onChange={(event) => setGotoPage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    const target = Number.parseInt(gotoPage, 10);
+                    if (Number.isFinite(target) && target >= 1 && target <= totalPages) {
+                      setPage(target);
+                      setGotoPage("");
+                    }
+                  }
+                }}
+              />
+              <button
+                className="button ghost"
+                onClick={() => {
+                  const target = Number.parseInt(gotoPage, 10);
+                  if (!Number.isFinite(target)) return;
+                  const next = Math.min(Math.max(1, target), totalPages);
+                  setPage(next);
+                  setGotoPage("");
+                }}
+                disabled={!gotoPage.trim()}
+              >
+                Go
+              </button>
+            </div>
+          </div>
           <div className="muted">
             Showing {sortedRecords.length ? `${showingStart}-${showingEnd}` : "0"} of {sortedRecords.length} · Sorted by {sortField} ({sortDirection})
-          </div>
-          <div className="pager">
-            <button className="button ghost" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={safePage === 1}>
-              Prev
-            </button>
-            <span className="muted">
-              Page {safePage} / {totalPages}
-            </span>
-            <button
-              className="button ghost"
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={safePage === totalPages || totalPages === 0}
-            >
-              Next
-            </button>
           </div>
         </div>
       </section>
